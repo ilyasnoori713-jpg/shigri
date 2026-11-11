@@ -1,0 +1,1426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canteen Khata - Offline Ledger & Order App</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        canteen: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                            800: '#166534',
+                            900: '#14532d',
+                            dark: '#1b5e20'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: #f4f7f5;
+        }
+        /* Custom scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #16a34a;
+            border-radius: 3px;
+        }
+        .tab-btn.active {
+            background-color: #15803d;
+            color: #ffffff;
+        }
+        .tab-btn-mobile.active {
+            color: #15803d;
+            font-weight: bold;
+        }
+        @media print {
+            .no-print { display: none !important; }
+            .print-only { display: block !important; }
+        }
+    </style>
+</head>
+<body class="text-gray-800 antialiased flex flex-col min-h-screen pb-16 md:pb-0">
+
+    <!-- TOP HEADER -->
+    <header class="bg-canteen-800 text-white shadow-md sticky top-0 z-30 no-print">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="bg-white text-canteen-800 p-2 rounded-lg font-black text-xl shadow">
+                    <i class="fa-solid fa-utensils"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-wide leading-none">Canteen Khata</h1>
+                    <span class="text-xs text-canteen-100 opacity-90">Digital Offline Ledger & Billing</span>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-2">
+                <button id="pwaInstallBtn" onclick="installPWA()" class="hidden bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-semibold px-3 py-1.5 rounded-lg text-xs md:text-sm shadow flex items-center gap-1.5 transition">
+                    <i class="fa-solid fa-download"></i> <span class="hidden sm:inline">Install App</span>
+                </button>
+                <button onclick="showQuickNewOrderModal()" class="bg-canteen-500 hover:bg-canteen-600 text-white px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold shadow flex items-center gap-1 transition">
+                    <i class="fa-solid fa-plus-circle"></i> <span>New Order</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN BODY CONTAINER WITH NAVIGATION -->
+    <div class="flex-1 max-w-7xl w-full mx-auto flex flex-col md:flex-row">
+        
+        <!-- SIDEBAR NAVIGATION (Desktop) -->
+        <aside class="w-full md:w-64 bg-white border-r border-gray-200 p-4 hidden md:block no-print">
+            <nav class="space-y-1">
+                <button onclick="switchTab('dashboard')" id="nav-dashboard" class="tab-btn w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl text-gray-700 hover:bg-canteen-50 transition active">
+                    <i class="fa-solid fa-chart-pie w-5 text-center"></i> Dashboard
+                </button>
+                <button onclick="switchTab('orders')" id="nav-orders" class="tab-btn w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl text-gray-700 hover:bg-canteen-50 transition">
+                    <i class="fa-solid fa-receipt w-5 text-center"></i> Order History
+                </button>
+                <button onclick="switchTab('customers')" id="nav-customers" class="tab-btn w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl text-gray-700 hover:bg-canteen-50 transition">
+                    <i class="fa-solid fa-users w-5 text-center"></i> Customers & Khata
+                </button>
+                <button onclick="switchTab('products')" id="nav-products" class="tab-btn w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl text-gray-700 hover:bg-canteen-50 transition">
+                    <i class="fa-solid fa-burger w-5 text-center"></i> Products & Menu
+                </button>
+                <button onclick="switchTab('backup')" id="nav-backup" class="tab-btn w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl text-gray-700 hover:bg-canteen-50 transition">
+                    <i class="fa-solid fa-database w-5 text-center"></i> Backup & Restore
+                </button>
+            </nav>
+
+            <div class="mt-8 p-3 bg-canteen-50 rounded-xl border border-canteen-100 text-xs text-canteen-800">
+                <div class="font-bold mb-1 flex items-center gap-1.5">
+                    <i class="fa-solid fa-shield-halved text-canteen-600"></i> Local Storage Active
+                </div>
+                <p>Data is stored inside your browser's IndexedDB. Works 100% offline.</p>
+            </div>
+        </aside>
+
+        <!-- CONTENT VIEWS AREA -->
+        <main class="flex-1 p-4 md:p-6 overflow-x-hidden">
+
+            <!-- ALERTS / NOTIFICATION CONTAINER -->
+            <div id="toastContainer" class="fixed top-16 right-4 z-50 space-y-2 pointer-events-none"></div>
+
+            <!-- TAB 1: DASHBOARD -->
+            <section id="tab-dashboard-view" class="space-y-6">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-800">Dashboard Summary</h2>
+                        <p class="text-sm text-gray-500" id="currentDateDisplay">Today's Overview</p>
+                    </div>
+                    <button onclick="loadDashboardData()" class="text-canteen-700 hover:text-canteen-900 text-sm font-medium flex items-center gap-1">
+                        <i class="fa-solid fa-rotate"></i> Refresh
+                    </button>
+                </div>
+
+                <!-- METRICS GRID -->
+                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
+                    <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex flex-col justify-between">
+                        <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Today Sales</span>
+                        <div class="text-xl md:text-2xl font-black text-canteen-700 mt-2" id="dashTodaySales">Rs. 0</div>
+                        <span class="text-[10px] text-gray-400 mt-1">Paid + Unpaid</span>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex flex-col justify-between">
+                        <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Total Orders</span>
+                        <div class="text-xl md:text-2xl font-black text-gray-800 mt-2" id="dashTotalOrders">0</div>
+                        <span class="text-[10px] text-gray-400 mt-1">All time</span>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex flex-col justify-between">
+                        <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Customers</span>
+                        <div class="text-xl md:text-2xl font-black text-blue-600 mt-2" id="dashTotalCustomers">0</div>
+                        <span class="text-[10px] text-gray-400 mt-1">Registered</span>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex flex-col justify-between">
+                        <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Total Paid</span>
+                        <div class="text-xl md:text-2xl font-black text-emerald-600 mt-2" id="dashTotalPaid">Rs. 0</div>
+                        <span class="text-[10px] text-gray-400 mt-1">Collected Revenue</span>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex flex-col justify-between">
+                        <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Total Unpaid</span>
+                        <div class="text-xl md:text-2xl font-black text-amber-600 mt-2" id="dashTotalUnpaid">Rs. 0</div>
+                        <span class="text-[10px] text-gray-400 mt-1">Pending Collections</span>
+                    </div>
+                    <div class="bg-white p-4 border-2 border-red-200 bg-red-50/50 rounded-xl shadow-sm flex flex-col justify-between">
+                        <span class="text-xs font-bold text-red-600 uppercase tracking-wider">Khata Balance</span>
+                        <div class="text-xl md:text-2xl font-black text-red-700 mt-2" id="dashRemainingBalance">Rs. 0</div>
+                        <span class="text-[10px] text-red-500 font-medium mt-1">Total Udhar / Due</span>
+                    </div>
+                </div>
+
+                <!-- RECENT ORDERS SECTION -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 md:p-5">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                            <i class="fa-solid fa-clock-rotate-left text-canteen-600"></i> Recent Orders
+                        </h3>
+                        <button onclick="switchTab('orders')" class="text-xs font-semibold text-canteen-700 hover:underline">
+                            View All Orders &rarr;
+                        </button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm border-collapse">
+                            <thead>
+                                <tr class="border-b border-gray-200 bg-gray-50 text-gray-500 font-medium text-xs">
+                                    <th class="py-2.5 px-3">Order ID</th>
+                                    <th class="py-2.5 px-3">Customer</th>
+                                    <th class="py-2.5 px-3">Items</th>
+                                    <th class="py-2.5 px-3">Amount</th>
+                                    <th class="py-2.5 px-3">Payment</th>
+                                    <th class="py-2.5 px-3">Delivery</th>
+                                    <th class="py-2.5 px-3 text-right">Quick Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dashRecentOrdersTable" class="divide-y divide-gray-100 text-gray-700">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 2: ORDER HISTORY -->
+            <section id="tab-orders-view" class="space-y-4 hidden">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-800">Order Management & History</h2>
+                        <p class="text-sm text-gray-500">Filter, edit and inspect all canteen orders</p>
+                    </div>
+                    <button onclick="showQuickNewOrderModal()" class="bg-canteen-700 hover:bg-canteen-800 text-white px-4 py-2 rounded-xl text-sm font-semibold shadow flex items-center gap-2">
+                        <i class="fa-solid fa-cart-plus"></i> Create New Order
+                    </button>
+                </div>
+
+                <!-- FILTERS TOOLBAR -->
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 grid grid-cols-1 sm:grid-cols-4 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 mb-1">Search Customer / ID</label>
+                        <input type="text" id="orderSearchInput" oninput="renderOrdersTable()" placeholder="Name or Order ID..." class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-canteen-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 mb-1">Payment Status</label>
+                        <select id="orderPaymentFilter" onchange="renderOrdersTable()" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-canteen-500">
+                            <option value="ALL">All Payment Statuses</option>
+                            <option value="Paid">Paid</option>
+                            <option value="Unpaid">Unpaid</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 mb-1">Delivery Status</label>
+                        <select id="orderDeliveryFilter" onchange="renderOrdersTable()" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-canteen-500">
+                            <option value="ALL">All Delivery Statuses</option>
+                            <option value="Delivered">Delivered</option>
+                            <option value="Pending">Pending</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 mb-1">Date Filter</label>
+                        <input type="date" id="orderDateFilter" onchange="renderOrdersTable()" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-canteen-500">
+                    </div>
+                </div>
+
+                <!-- ORDERS TABLE CONTAINER -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm border-collapse">
+                            <thead>
+                                <tr class="bg-gray-50 border-b border-gray-200 text-gray-500 font-semibold text-xs">
+                                    <th class="py-3 px-4">Date & Time</th>
+                                    <th class="py-3 px-4">Order ID</th>
+                                    <th class="py-3 px-4">Customer</th>
+                                    <th class="py-3 px-4">Product & Size</th>
+                                    <th class="py-3 px-4">Qty × Price</th>
+                                    <th class="py-3 px-4">Total</th>
+                                    <th class="py-3 px-4">Payment</th>
+                                    <th class="py-3 px-4">Delivery</th>
+                                    <th class="py-3 px-4 text-center">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ordersFullTable" class="divide-y divide-gray-100">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 3: CUSTOMER MANAGEMENT & ACCOUNT LEDGER -->
+            <section id="tab-customers-view" class="space-y-4 hidden">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-800">Customer Management & Ledger</h2>
+                        <p class="text-sm text-gray-500">Manage customers and track account balances (Udhar Khata)</p>
+                    </div>
+                    <button onclick="openAddCustomerModal()" class="bg-canteen-700 hover:bg-canteen-800 text-white px-4 py-2 rounded-xl text-sm font-semibold shadow flex items-center gap-2">
+                        <i class="fa-solid fa-user-plus"></i> Add New Customer
+                    </button>
+                </div>
+
+                <!-- SEARCH & FILTER -->
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col sm:flex-row gap-3">
+                    <div class="flex-1">
+                        <input type="text" id="customerSearchInput" oninput="renderCustomersList()" placeholder="Search by Customer Name, Phone, or ID..." class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-canteen-500">
+                    </div>
+                </div>
+
+                <!-- CUSTOMERS GRID -->
+                <div id="customersCardGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- Cards rendered dynamically -->
+                </div>
+            </section>
+
+            <!-- TAB 4: PRODUCTS CATALOG MANAGEMENT -->
+            <section id="tab-products-view" class="space-y-4 hidden">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-800">Products & Menu Setup</h2>
+                        <p class="text-sm text-gray-500">Configure canteen menu items, sizes, and default prices</p>
+                    </div>
+                    <button onclick="openAddProductModal()" class="bg-canteen-700 hover:bg-canteen-800 text-white px-4 py-2 rounded-xl text-sm font-semibold shadow flex items-center gap-2">
+                        <i class="fa-solid fa-mug-hot"></i> Add New Product
+                    </button>
+                </div>
+
+                <div id="productsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <!-- Product Cards dynamic -->
+                </div>
+            </section>
+
+            <!-- TAB 5: BACKUP & RESTORE -->
+            <section id="tab-backup-view" class="space-y-6 hidden">
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-800">Data Backup & Export</h2>
+                    <p class="text-sm text-gray-500">Safeguard your canteen database, restore backups, or export reports</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- EXPORT BOX -->
+                    <div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4">
+                        <div class="flex items-center gap-3">
+                            <div class="p-3 bg-canteen-100 text-canteen-800 rounded-xl">
+                                <i class="fa-solid fa-file-export text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-gray-800 text-lg">Export Options</h3>
+                                <p class="text-xs text-gray-500">Download complete data or reports</p>
+                            </div>
+                        </div>
+                        <p class="text-sm text-gray-600">Generate an offline backup file containing all customers, product menus, and transaction history.</p>
+                        
+                        <div class="space-y-2 pt-2">
+                            <button onclick="exportJSONBackup()" class="w-full py-2.5 px-4 bg-canteen-700 hover:bg-canteen-800 text-white text-sm font-semibold rounded-xl shadow transition flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-download"></i> Export Full JSON Database Backup
+                            </button>
+                            <button onclick="exportOrdersCSV()" class="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl shadow transition flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-file-csv"></i> Export Orders to CSV Excel Report
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- RESTORE BOX -->
+                    <div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4">
+                        <div class="flex items-center gap-3">
+                            <div class="p-3 bg-amber-100 text-amber-800 rounded-xl">
+                                <i class="fa-solid fa-file-import text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-gray-800 text-lg">Restore JSON Database</h3>
+                                <p class="text-xs text-gray-500">Import saved JSON backup file</p>
+                            </div>
+                        </div>
+                        <p class="text-sm text-gray-600">Select a previously exported JSON backup file to merge or restore data into IndexedDB.</p>
+                        
+                        <div class="border-2 border-dashed border-gray-300 rounded-xl p-4 text-center hover:bg-gray-50 transition">
+                            <input type="file" id="restoreFileInput" accept=".json" class="hidden" onchange="handleRestoreFile(event)">
+                            <label for="restoreFileInput" class="cursor-pointer block">
+                                <i class="fa-solid fa-cloud-arrow-up text-2xl text-gray-400 mb-1"></i>
+                                <span class="block text-xs font-semibold text-canteen-700">Click to Select JSON File</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- MOBILE BOTTOM TAB BAR -->
+    <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around items-center py-2 z-30 no-print">
+        <button onclick="switchTab('dashboard')" id="mobile-nav-dashboard" class="tab-btn-mobile flex flex-col items-center text-xs text-gray-500 active">
+            <i class="fa-solid fa-chart-pie text-lg mb-0.5"></i> Home
+        </button>
+        <button onclick="switchTab('orders')" id="mobile-nav-orders" class="tab-btn-mobile flex flex-col items-center text-xs text-gray-500">
+            <i class="fa-solid fa-receipt text-lg mb-0.5"></i> Orders
+        </button>
+        <button onclick="switchTab('customers')" id="mobile-nav-customers" class="tab-btn-mobile flex flex-col items-center text-xs text-gray-500">
+            <i class="fa-solid fa-users text-lg mb-0.5"></i> Khata
+        </button>
+        <button onclick="switchTab('products')" id="mobile-nav-products" class="tab-btn-mobile flex flex-col items-center text-xs text-gray-500">
+            <i class="fa-solid fa-burger text-lg mb-0.5"></i> Menu
+        </button>
+    </nav>
+
+    <!-- MODAL: NEW / EDIT ORDER -->
+    <div id="orderModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl relative max-h-[90vh] overflow-y-auto">
+            <button onclick="closeModal('orderModal')" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-lg">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <h3 class="text-xl font-bold text-gray-800 mb-4" id="orderModalTitle">Create New Order</h3>
+            
+            <form id="orderForm" onsubmit="saveOrder(event)" class="space-y-4">
+                <input type="hidden" id="orderEditId">
+                
+                <!-- CUSTOMER SELECTOR OR NEW ENTRY -->
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 mb-1 uppercase">Customer *</label>
+                    <div class="flex gap-2">
+                        <select id="orderCustomerSelect" required onchange="onOrderCustomerChange()" class="flex-1 px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-canteen-500">
+                            <!-- Populated dynamically -->
+                        </select>
+                        <button type="button" onclick="openAddCustomerModal(true)" class="bg-canteen-100 text-canteen-800 px-3 py-2 rounded-xl text-sm font-semibold hover:bg-canteen-200">
+                            + New
+                        </button>
+                    </div>
+                </div>
+
+                <!-- PRODUCT SELECTOR -->
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 mb-1 uppercase">Product Item *</label>
+                    <select id="orderProductSelect" required onchange="onOrderProductChange()" class="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-canteen-500">
+                        <!-- Populated dynamically -->
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <!-- SIZE SELECTOR -->
+                    <div>
+                        <label class="block text-xs font-bold text-gray-600 mb-1 uppercase">Size / Option *</label>
+                        <select id="orderSizeSelect" required onchange="calculateOrderTotal()" class="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-canteen-500">
+                            <!-- Populated dynamically -->
+                        </select>
+                    </div>
+
+                    <!-- QUANTITY -->
+                    <div>
+                        <label class="block text-xs font-bold text-gray-600 mb-1 uppercase">Quantity *</label>
+                        <input type="number" id="orderQuantity" min="1" value="1" required oninput="calculateOrderTotal()" class="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-canteen-500">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <!-- UNIT PRICE (AUTO-CALCULATED BUT EDITABLE) -->
+                    <div>
+                        <label class="block text-xs font-bold text-gray-600 mb-1 uppercase">Unit Price (Rs.) *</label>
+                        <input type="number" id="orderUnitPrice" min="0" required oninput="calculateOrderTotal()" class="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-canteen-500">
+                    </div>
+                    <!-- TOTAL AMOUNT (CALCULATED) -->
+                    <div>
+                        <label class="block text-xs font-bold text-gray-600 mb-1 uppercase">Total (Rs.)</label>
+                        <input type="number" id="orderTotal" readonly class="w-full px-3 py-2 border border-gray-200 bg-gray-50 font-bold text-canteen-700 rounded-xl text-sm">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 pt-2">
+                    <!-- PAYMENT STATUS -->
+                    <div>
+                        <label class="block text-xs font-bold text-gray-600 mb-1 uppercase">Payment Status</label>
+                        <select id="orderPaymentStatus" class="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-canteen-500 font-semibold">
+                            <option value="Unpaid" class="text-amber-600">Unpaid (Udhar)</option>
+                            <option value="Paid" class="text-emerald-600">Paid</option>
+                        </select>
+                    </div>
+                    <!-- DELIVERY STATUS -->
+                    <div>
+                        <label class="block text-xs font-bold text-gray-600 mb-1 uppercase">Delivery Status</label>
+                        <select id="orderDeliveryStatus" class="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-canteen-500 font-semibold">
+                            <option value="Delivered">Delivered</option>
+                            <option value="Pending">Pending</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="flex gap-3 pt-4">
+                    <button type="button" onclick="closeModal('orderModal')" class="flex-1 py-2.5 border border-gray-300 text-gray-600 rounded-xl text-sm font-semibold hover:bg-gray-50">Cancel</button>
+                    <button type="submit" class="flex-1 py-2.5 bg-canteen-700 hover:bg-canteen-800 text-white rounded-xl text-sm font-semibold shadow">Save Order</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: ADD / EDIT CUSTOMER -->
+    <div id="customerModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl relative">
+            <button onclick="closeModal('customerModal')" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-lg">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <h3 class="text-xl font-bold text-gray-800 mb-4" id="customerModalTitle">Add New Customer</h3>
+            
+            <form id="customerForm" onsubmit="saveCustomer(event)" class="space-y-4">
+                <input type="hidden" id="customerEditId">
+                <input type="hidden" id="customerFormFromOrder" value="false">
+                
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 mb-1 uppercase">Full Name *</label>
+                    <input type="text" id="customerName" required placeholder="e.g. Ali Khan" class="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-canteen-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 mb-1 uppercase">Phone Number (Optional)</label>
+                    <input type="tel" id="customerPhone" placeholder="e.g. 03001234567" class="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-canteen-500">
+                </div>
+
+                <div class="flex gap-3 pt-3">
+                    <button type="button" onclick="closeModal('customerModal')" class="flex-1 py-2.5 border border-gray-300 text-gray-600 rounded-xl text-sm font-semibold hover:bg-gray-50">Cancel</button>
+                    <button type="submit" class="flex-1 py-2.5 bg-canteen-700 hover:bg-canteen-800 text-white rounded-xl text-sm font-semibold shadow">Save Customer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: CUSTOMER LEDGER ACCOUNT DETAIL -->
+    <div id="customerAccountModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-xl relative max-h-[90vh] flex flex-col">
+            <button onclick="closeModal('customerAccountModal')" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-lg">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <div class="mb-4">
+                <span class="text-xs font-bold bg-canteen-100 text-canteen-800 px-2 py-0.5 rounded" id="accCustId">CUST-1001</span>
+                <h3 class="text-2xl font-black text-gray-800 mt-1" id="accCustName">Ali Khan</h3>
+                <p class="text-xs text-gray-500" id="accCustPhone">Phone: --</p>
+            </div>
+
+            <!-- LEDGER STATS HEADER -->
+            <div class="grid grid-cols-4 gap-2 p-3 bg-gray-50 rounded-xl border border-gray-200 mb-4 text-center">
+                <div>
+                    <div class="text-[10px] text-gray-400 uppercase font-bold">Total Orders</div>
+                    <div class="text-base font-bold text-gray-800" id="accTotalOrders">0</div>
+                </div>
+                <div>
+                    <div class="text-[10px] text-gray-400 uppercase font-bold">Total Bill</div>
+                    <div class="text-base font-bold text-gray-800" id="accTotalBill">Rs. 0</div>
+                </div>
+                <div>
+                    <div class="text-[10px] text-gray-400 uppercase font-bold">Total Paid</div>
+                    <div class="text-base font-bold text-emerald-600" id="accTotalPaid">Rs. 0</div>
+                </div>
+                <div>
+                    <div class="text-[10px] text-gray-400 uppercase font-bold">Udhar Balance</div>
+                    <div class="text-base font-bold text-red-600" id="accRemainingBalance">Rs. 0</div>
+                </div>
+            </div>
+
+            <!-- ORDER HISTORY LIST -->
+            <h4 class="text-xs font-bold uppercase text-gray-500 mb-2">Complete Order History</h4>
+            <div class="flex-1 overflow-y-auto border border-gray-100 rounded-xl">
+                <table class="w-full text-left text-xs border-collapse">
+                    <thead class="sticky top-0 bg-gray-100 text-gray-600">
+                        <tr>
+                            <th class="p-2.5">Date</th>
+                            <th class="p-2.5">Order ID</th>
+                            <th class="p-2.5">Product</th>
+                            <th class="p-2.5">Qty</th>
+                            <th class="p-2.5">Amount</th>
+                            <th class="p-2.5">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="accOrdersTable" class="divide-y divide-gray-100">
+                        <!-- Dynamic orders -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="pt-4 flex justify-end">
+                <button onclick="closeModal('customerAccountModal')" class="px-5 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold text-xs rounded-xl">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: ADD / EDIT PRODUCT -->
+    <div id="productModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl relative">
+            <button onclick="closeModal('productModal')" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-lg">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <h3 class="text-xl font-bold text-gray-800 mb-4" id="productModalTitle">Add Product</h3>
+            
+            <form id="productForm" onsubmit="saveProduct(event)" class="space-y-4">
+                <input type="hidden" id="productEditId">
+                
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 mb-1 uppercase">Product Name *</label>
+                    <input type="text" id="productName" required placeholder="e.g. Mango Shake" class="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-canteen-500">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-600 mb-1 uppercase">Medium Price (Rs.)</label>
+                        <input type="number" id="productMediumPrice" min="0" placeholder="0" class="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-canteen-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-600 mb-1 uppercase">Large Price (Rs.)</label>
+                        <input type="number" id="productLargePrice" min="0" placeholder="0" class="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-canteen-500">
+                    </div>
+                </div>
+
+                <div class="flex gap-3 pt-3">
+                    <button type="button" onclick="closeModal('productModal')" class="flex-1 py-2.5 border border-gray-300 text-gray-600 rounded-xl text-sm font-semibold hover:bg-gray-50">Cancel</button>
+                    <button type="submit" class="flex-1 py-2.5 bg-canteen-700 hover:bg-canteen-800 text-white rounded-xl text-sm font-semibold shadow">Save Product</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+    <!-- JAVASCRIPT APPLICATION CORE -->
+    <script>
+        /**
+         * CANTEEN KHATA PWA APPLICATION LOGIC
+         * - Clean IndexedDB Store initialization & operations
+         * - Persistent local ledger calculation
+         */
+
+        const DB_NAME = 'CanteenKhataDB';
+        const DB_VERSION = 1;
+        let db = null;
+
+        // Default products specification
+        const DEFAULT_PRODUCTS = [
+            { id: 'PROD-101', name: 'Banana Shake', sizes: { Medium: 100, Large: 150 } },
+            { id: 'PROD-102', name: 'Banana with Dates Shake', sizes: { Medium: 150, Large: 200 } },
+            { id: 'PROD-103', name: 'Dates Shake', sizes: { Medium: 200, Large: 250 } },
+            { id: 'PROD-104', name: 'Dahi Baray', sizes: { Medium: 100, Large: 150 } }
+        ];
+
+        // Global State Cache
+        let state = {
+            customers: [],
+            products: [],
+            orders: []
+        };
+
+        // Initialize Database on Page Load
+        window.addEventListener('DOMContentLoaded', async () => {
+            document.getElementById('currentDateDisplay').innerText = new Date().toLocaleDateString('en-US', {
+                weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+            });
+            
+            try {
+                await initIndexedDB();
+                await reloadAllData();
+                setupPWA();
+            } catch (err) {
+                showToast('Failed to initialize local database.', 'error');
+                console.error(err);
+            }
+        });
+
+        /* ================= IndexedDB Engine ================= */
+        function initIndexedDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+                request.onupgradeneeded = (event) => {
+                    const db = event.target.result;
+                    if (!db.objectStoreNames.contains('customers')) {
+                        db.createObjectStore('customers', { keyPath: 'id' });
+                    }
+                    if (!db.objectStoreNames.contains('products')) {
+                        db.createObjectStore('products', { keyPath: 'id' });
+                    }
+                    if (!db.objectStoreNames.contains('orders')) {
+                        db.createObjectStore('orders', { keyPath: 'id' });
+                    }
+                };
+
+                request.onsuccess = (event) => {
+                    db = event.target.result;
+                    resolve(db);
+                };
+
+                request.onerror = (event) => {
+                    reject(event.target.error);
+                };
+            });
+        }
+
+        // Generic IndexedDB Transactions
+        function dbGetAll(storeName) {
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(storeName, 'readonly');
+                const store = tx.objectStore(storeName);
+                const req = store.getAll();
+                req.onsuccess = () => resolve(req.result || []);
+                req.onerror = () => reject(req.error);
+            });
+        }
+
+        function dbPut(storeName, data) {
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(storeName, 'readwrite');
+                const store = tx.objectStore(storeName);
+                const req = store.put(data);
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => reject(req.error);
+            });
+        }
+
+        function dbDelete(storeName, id) {
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(storeName, 'readwrite');
+                const store = tx.objectStore(storeName);
+                const req = store.delete(id);
+                req.onsuccess = () => resolve();
+                req.onerror = () => reject(req.error);
+            });
+        }
+
+        // Load or initialize DB state
+        async function reloadAllData() {
+            state.customers = await dbGetAll('customers');
+            state.products = await dbGetAll('products');
+            state.orders = await dbGetAll('orders');
+
+            // Seed default products if empty
+            if (state.products.length === 0) {
+                for (const p of DEFAULT_PRODUCTS) {
+                    await dbPut('products', p);
+                }
+                state.products = await dbGetAll('products');
+            }
+
+            renderCurrentTab();
+        }
+
+        /* ================= Navigation ================= */
+        let activeTab = 'dashboard';
+
+        function switchTab(tabId) {
+            activeTab = tabId;
+            
+            // Hide all tabs
+            ['dashboard', 'orders', 'customers', 'products', 'backup'].forEach(tab => {
+                document.getElementById(`tab-${tab}-view`).classList.add('hidden');
+                
+                const desktopNav = document.getElementById(`nav-${tab}`);
+                if(desktopNav) desktopNav.classList.remove('active');
+                
+                const mobileNav = document.getElementById(`mobile-nav-${tab}`);
+                if(mobileNav) mobileNav.classList.remove('active');
+            });
+
+            // Show selected tab
+            document.getElementById(`tab-${tabId}-view`).classList.remove('hidden');
+            const activeDesktop = document.getElementById(`nav-${tabId}`);
+            if(activeDesktop) activeDesktop.classList.add('active');
+            
+            const activeMobile = document.getElementById(`mobile-nav-${tabId}`);
+            if(activeMobile) activeMobile.classList.add('active');
+
+            renderCurrentTab();
+        }
+
+        function renderCurrentTab() {
+            if (activeTab === 'dashboard') loadDashboardData();
+            if (activeTab === 'orders') renderOrdersTable();
+            if (activeTab === 'customers') renderCustomersList();
+            if (activeTab === 'products') renderProductsGrid();
+        }
+
+        /* ================= 1. Dashboard Logic ================= */
+        function loadDashboardData() {
+            const todayStr = new Date().toISOString().split('T')[0];
+
+            let todaySales = 0;
+            let totalPaid = 0;
+            let totalUnpaid = 0;
+
+            state.orders.forEach(order => {
+                const orderAmount = Number(order.totalAmount || 0);
+                
+                // Calculate today sales
+                if (order.date && order.date.startsWith(todayStr)) {
+                    todaySales += orderAmount;
+                }
+
+                if (order.paymentStatus === 'Paid') {
+                    totalPaid += orderAmount;
+                } else {
+                    totalUnpaid += orderAmount;
+                }
+            });
+
+            document.getElementById('dashTodaySales').innerText = `Rs. ${todaySales.toLocaleString()}`;
+            document.getElementById('dashTotalOrders').innerText = state.orders.length;
+            document.getElementById('dashTotalCustomers').innerText = state.customers.length;
+            document.getElementById('dashTotalPaid').innerText = `Rs. ${totalPaid.toLocaleString()}`;
+            document.getElementById('dashTotalUnpaid').innerText = `Rs. ${totalUnpaid.toLocaleString()}`;
+            document.getElementById('dashRemainingBalance').innerText = `Rs. ${totalUnpaid.toLocaleString()}`;
+
+            // Render Recent 5 Orders
+            const sortedOrders = [...state.orders].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 5);
+            const tbody = document.getElementById('dashRecentOrdersTable');
+            
+            if (sortedOrders.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="py-4 text-center text-gray-400">No orders placed yet.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = sortedOrders.map(o => {
+                const isPaid = o.paymentStatus === 'Paid';
+                return `
+                    <tr class="hover:bg-gray-50/50">
+                        <td class="py-2.5 px-3 font-mono font-bold text-xs text-canteen-800">${o.id}</td>
+                        <td class="py-2.5 px-3 font-semibold text-gray-800">${escapeHtml(o.customerName)}</td>
+                        <td class="py-2.5 px-3">${escapeHtml(o.productName)} (${o.size}) × ${o.quantity}</td>
+                        <td class="py-2.5 px-3 font-bold">Rs. ${o.totalAmount}</td>
+                        <td class="py-2.5 px-3">
+                            <span class="px-2 py-0.5 text-[10px] font-bold rounded-full ${isPaid ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}">
+                                ${o.paymentStatus}
+                            </span>
+                        </td>
+                        <td class="py-2.5 px-3">
+                            <span class="px-2 py-0.5 text-[10px] font-bold rounded-full ${o.deliveryStatus === 'Delivered' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-700'}">
+                                ${o.deliveryStatus}
+                            </span>
+                        </td>
+                        <td class="py-2.5 px-3 text-right">
+                            <button onclick="toggleQuickPaymentStatus('${o.id}')" class="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2.5 py-1 rounded-lg font-medium transition">
+                                Toggle Payment
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        async function toggleQuickPaymentStatus(orderId) {
+            const order = state.orders.find(o => o.id === orderId);
+            if (!order) return;
+            order.paymentStatus = order.paymentStatus === 'Paid' ? 'Unpaid' : 'Paid';
+            await dbPut('orders', order);
+            await reloadAllData();
+            showToast(`Order ${orderId} marked as ${order.paymentStatus}`);
+        }
+
+        /* ================= 2. Customer Management & Ledger Account ================= */
+        function openAddCustomerModal(fromOrder = false) {
+            document.getElementById('customerForm').reset();
+            document.getElementById('customerEditId').value = '';
+            document.getElementById('customerFormFromOrder').value = fromOrder ? 'true' : 'false';
+            document.getElementById('customerModalTitle').innerText = 'Add New Customer';
+            document.getElementById('customerModal').classList.remove('hidden');
+        }
+
+        async function saveCustomer(e) {
+            e.preventDefault();
+            const editId = document.getElementById('customerEditId').value;
+            const name = document.getElementById('customerName').value.trim();
+            const phone = document.getElementById('customerPhone').value.trim();
+            const fromOrder = document.getElementById('customerFormFromOrder').value === 'true';
+
+            if (!name) return;
+
+            // Check duplicates
+            const duplicate = state.customers.find(c => c.id !== editId && (c.name.toLowerCase() === name.toLowerCase() || (phone && c.phone === phone)));
+            if (duplicate) {
+                showToast('A customer with this name or phone already exists!', 'error');
+                return;
+            }
+
+            let customerId = editId;
+            if (!customerId) {
+                // Auto generate CUST-XXXX
+                const nextNum = state.customers.length + 1001;
+                customerId = `CUST-${nextNum}`;
+            }
+
+            const customerObj = {
+                id: customerId,
+                name: name,
+                phone: phone || '',
+                createdAt: editId ? (state.customers.find(c => c.id === editId)?.createdAt || new Date().toISOString()) : new Date().toISOString()
+            };
+
+            await dbPut('customers', customerObj);
+            await reloadAllData();
+            closeModal('customerModal');
+            showToast(`Customer saved: ${name}`);
+
+            if (fromOrder) {
+                // If triggered inside New Order modal, update dropdown and select newly added customer
+                populateCustomerSelect();
+                document.getElementById('orderCustomerSelect').value = customerId;
+            }
+        }
+
+        function renderCustomersList() {
+            const search = document.getElementById('customerSearchInput').value.toLowerCase();
+            const grid = document.getElementById('customersCardGrid');
+
+            const filtered = state.customers.filter(c => 
+                c.name.toLowerCase().includes(search) || 
+                c.phone.includes(search) || 
+                c.id.toLowerCase().includes(search)
+            );
+
+            if (filtered.length === 0) {
+                grid.innerHTML = `<div class="col-span-full text-center py-8 text-gray-400">No customers found.</div>`;
+                return;
+            }
+
+            grid.innerHTML = filtered.map(c => {
+                // Calculate customer stats dynamically
+                const custOrders = state.orders.filter(o => o.customerId === c.id);
+                const totalOrders = custOrders.length;
+                let totalBill = 0;
+                let totalPaid = 0;
+
+                custOrders.forEach(o => {
+                    const amt = Number(o.totalAmount || 0);
+                    totalBill += amt;
+                    if (o.paymentStatus === 'Paid') totalPaid += amt;
+                });
+
+                const remaining = totalBill - totalPaid;
+
+                return `
+                    <div class="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm hover:shadow-md transition flex flex-col justify-between space-y-3">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <span class="text-[10px] font-bold bg-canteen-100 text-canteen-800 px-2 py-0.5 rounded">${c.id}</span>
+                                <h3 class="font-bold text-gray-800 text-lg mt-1">${escapeHtml(c.name)}</h3>
+                                <p class="text-xs text-gray-500">${c.phone ? `<i class="fa-solid fa-phone text-[10px]"></i> ${escapeHtml(c.phone)}` : 'No phone'}</p>
+                            </div>
+                            <button onclick="openCustomerLedger('${c.id}')" class="bg-canteen-50 hover:bg-canteen-100 text-canteen-700 p-2 rounded-xl text-xs font-semibold flex items-center gap-1">
+                                <i class="fa-solid fa-book-open"></i> Ledger
+                            </button>
+                        </div>
+
+                        <div class="grid grid-cols-3 gap-2 bg-gray-50 p-2.5 rounded-xl text-center text-xs">
+                            <div>
+                                <div class="text-[10px] text-gray-400 font-medium">Orders</div>
+                                <div class="font-bold text-gray-700">${totalOrders}</div>
+                            </div>
+                            <div>
+                                <div class="text-[10px] text-gray-400 font-medium">Total Bill</div>
+                                <div class="font-bold text-gray-700">Rs.${totalBill}</div>
+                            </div>
+                            <div>
+                                <div class="text-[10px] text-gray-400 font-medium">Udhar Due</div>
+                                <div class="font-bold ${remaining > 0 ? 'text-red-600' : 'text-emerald-600'}">Rs.${remaining}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function openCustomerLedger(customerId) {
+            const customer = state.customers.find(c => c.id === customerId);
+            if (!customer) return;
+
+            const custOrders = state.orders.filter(o => o.customerId === customerId);
+            let totalBill = 0;
+            let totalPaid = 0;
+
+            custOrders.forEach(o => {
+                const amt = Number(o.totalAmount || 0);
+                totalBill += amt;
+                if (o.paymentStatus === 'Paid') totalPaid += amt;
+            });
+            const remaining = totalBill - totalPaid;
+
+            document.getElementById('accCustId').innerText = customer.id;
+            document.getElementById('accCustName').innerText = customer.name;
+            document.getElementById('accCustPhone').innerText = customer.phone ? `Phone: ${customer.phone}` : 'No phone specified';
+            
+            document.getElementById('accTotalOrders').innerText = custOrders.length;
+            document.getElementById('accTotalBill').innerText = `Rs. ${totalBill.toLocaleString()}`;
+            document.getElementById('accTotalPaid').innerText = `Rs. ${totalPaid.toLocaleString()}`;
+            document.getElementById('accRemainingBalance').innerText = `Rs. ${remaining.toLocaleString()}`;
+
+            const tbody = document.getElementById('accOrdersTable');
+            if (custOrders.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-gray-400">No transactions recorded for this customer.</td></tr>`;
+            } else {
+                tbody.innerHTML = custOrders.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt)).map(o => `
+                    <tr class="hover:bg-gray-50">
+                        <td class="p-2.5 text-gray-500">${new Date(o.createdAt).toLocaleDateString()}</td>
+                        <td class="p-2.5 font-mono font-bold text-canteen-800">${o.id}</td>
+                        <td class="p-2.5">${escapeHtml(o.productName)} (${o.size})</td>
+                        <td class="p-2.5">${o.quantity}</td>
+                        <td class="p-2.5 font-bold">Rs. ${o.totalAmount}</td>
+                        <td class="p-2.5">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold ${o.paymentStatus === 'Paid' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}">
+                                ${o.paymentStatus}
+                            </span>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+
+            document.getElementById('customerAccountModal').classList.remove('hidden');
+        }
+
+
+        /* ================= 3. Order Management & Form Logic ================= */
+        function showQuickNewOrderModal(editOrderId = null) {
+            populateCustomerSelect();
+            populateProductSelect();
+
+            const form = document.getElementById('orderForm');
+            form.reset();
+
+            if (editOrderId) {
+                const order = state.orders.find(o => o.id === editOrderId);
+                if (!order) return;
+                document.getElementById('orderModalTitle').innerText = `Edit Order ${order.id}`;
+                document.getElementById('orderEditId').value = order.id;
+                document.getElementById('orderCustomerSelect').value = order.customerId;
+                document.getElementById('orderProductSelect').value = order.productId;
+                onOrderProductChange();
+                document.getElementById('orderSizeSelect').value = order.size;
+                document.getElementById('orderQuantity').value = order.quantity;
+                document.getElementById('orderUnitPrice').value = order.unitPrice;
+                document.getElementById('orderPaymentStatus').value = order.paymentStatus;
+                document.getElementById('orderDeliveryStatus').value = order.deliveryStatus;
+                calculateOrderTotal();
+            } else {
+                document.getElementById('orderModalTitle').innerText = 'Create New Order';
+                document.getElementById('orderEditId').value = '';
+                onOrderProductChange();
+            }
+
+            document.getElementById('orderModal').classList.remove('hidden');
+        }
+
+        function populateCustomerSelect() {
+            const select = document.getElementById('orderCustomerSelect');
+            if (state.customers.length === 0) {
+                select.innerHTML = `<option value="">-- No Customers. Add One! --</option>`;
+                return;
+            }
+            select.innerHTML = state.customers.map(c => `
+                <option value="${c.id}">${escapeHtml(c.name)} (${c.id})</option>
+            `).join('');
+        }
+
+        function populateProductSelect() {
+            const select = document.getElementById('orderProductSelect');
+            select.innerHTML = state.products.map(p => `
+                <option value="${p.id}">${escapeHtml(p.name)}</option>
+            `).join('');
+        }
+
+        function onOrderProductChange() {
+            const productId = document.getElementById('orderProductSelect').value;
+            const product = state.products.find(p => p.id === productId);
+            const sizeSelect = document.getElementById('orderSizeSelect');
+
+            if (!product || !product.sizes) {
+                sizeSelect.innerHTML = `<option value="Regular">Regular</option>`;
+                document.getElementById('orderUnitPrice').value = 0;
+            } else {
+                const sizes = Object.keys(product.sizes);
+                sizeSelect.innerHTML = sizes.map(s => `<option value="${s}">${s} (Rs. ${product.sizes[s]})</option>`).join('');
+                
+                // Set default unit price from product catalog
+                const selectedSize = sizeSelect.value;
+                document.getElementById('orderUnitPrice').value = product.sizes[selectedSize] || 0;
+            }
+            calculateOrderTotal();
+        }
+
+        function calculateOrderTotal() {
+            const productId = document.getElementById('orderProductSelect').value;
+            const product = state.products.find(p => p.id === productId);
+            const size = document.getElementById('orderSizeSelect').value;
+            
+            // Auto update price input if changed size (unless user manually entered unit price)
+            if (product && product.sizes && product.sizes[size] !== undefined && !document.getElementById('orderEditId').value) {
+                document.getElementById('orderUnitPrice').value = product.sizes[size];
+            }
+
+            const qty = Number(document.getElementById('orderQuantity').value || 1);
+            const unitPrice = Number(document.getElementById('orderUnitPrice').value || 0);
+            
+            const total = qty * unitPrice;
+            document.getElementById('orderTotal').value = total;
+        }
+
+        function onOrderCustomerChange() {}
+
+        async function saveOrder(e) {
+            e.preventDefault();
+            const editId = document.getElementById('orderEditId').value;
+            const customerId = document.getElementById('orderCustomerSelect').value;
+            const productId = document.getElementById('orderProductSelect').value;
+            const size = document.getElementById('orderSizeSelect').value;
+            const quantity = Number(document.getElementById('orderQuantity').value);
+            const unitPrice = Number(document.getElementById('orderUnitPrice').value);
+            const totalAmount = Number(document.getElementById('orderTotal').value);
+            const paymentStatus = document.getElementById('orderPaymentStatus').value;
+            const deliveryStatus = document.getElementById('orderDeliveryStatus').value;
+
+            if (!customerId) {
+                showToast('Please select or add a customer.', 'error');
+                return;
+            }
+
+            const customer = state.customers.find(c => c.id === customerId);
+            const product = state.products.find(p => p.id === productId);
+
+            let orderId = editId;
+            if (!orderId) {
+                const nextNum = state.orders.length + 5001;
+                orderId = `ORD-${nextNum}`;
+            }
+
+            const existingOrder = state.orders.find(o => o.id === editId);
+
+            const orderObj = {
+                id: orderId,
+                customerId: customerId,
+                customerName: customer ? customer.name : 'Unknown',
+                productId: productId,
+                productName: product ? product.name : 'Custom Item',
+                size: size,
+                quantity: quantity,
+                unitPrice: unitPrice,
+                totalAmount: totalAmount,
+                paymentStatus: paymentStatus,
+                deliveryStatus: deliveryStatus,
+                date: existingOrder ? existingOrder.date : new Date().toISOString().split('T')[0],
+                createdAt: existingOrder ? existingOrder.createdAt : new Date().toISOString()
+            };
+
+            await dbPut('orders', orderObj);
+            await reloadAllData();
+            closeModal('orderModal');
+            showToast(`Order ${orderId} saved successfully.`);
+        }
+
+        /* ================= 4. Order History View & Filter ================= */
+        function renderOrdersTable() {
+            const search = document.getElementById('orderSearchInput').value.toLowerCase();
+            const payFilter = document.getElementById('orderPaymentFilter').value;
+            const delFilter = document.getElementById('orderDeliveryFilter').value;
+            const dateFilter = document.getElementById('orderDateFilter').value;
+
+            const tbody = document.getElementById('ordersFullTable');
+
+            const filtered = state.orders.filter(o => {
+                const matchesSearch = o.customerName.toLowerCase().includes(search) || o.id.toLowerCase().includes(search);
+                const matchesPay = payFilter === 'ALL' || o.paymentStatus === payFilter;
+                const matchesDel = delFilter === 'ALL' || o.deliveryStatus === delFilter;
+                const matchesDate = !dateFilter || (o.date && o.date.startsWith(dateFilter));
+                return matchesSearch && matchesPay && matchesDel && matchesDate;
+            });
+
+            // Sort newest first
+            filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="9" class="py-6 text-center text-gray-400">No matching orders found.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(o => `
+                <tr class="hover:bg-gray-50/70 border-b border-gray-100">
+                    <td class="py-3 px-4 text-xs text-gray-500">${new Date(o.createdAt).toLocaleString()}</td>
+                    <td class="py-3 px-4 font-mono font-bold text-xs text-canteen-800">${o.id}</td>
+                    <td class="py-3 px-4 font-semibold text-gray-800">${escapeHtml(o.customerName)}</td>
+                    <td class="py-3 px-4">${escapeHtml(o.productName)} (${o.size})</td>
+                    <td class="py-3 px-4 text-gray-600">${o.quantity} × Rs.${o.unitPrice}</td>
+                    <td class="py-3 px-4 font-bold text-gray-900">Rs.${o.totalAmount}</td>
+                    <td class="py-3 px-4">
+                        <span class="px-2.5 py-1 text-[10px] font-bold rounded-full ${o.paymentStatus === 'Paid' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}">
+                            ${o.paymentStatus}
+                        </span>
+                    </td>
+                    <td class="py-3 px-4">
+                        <span class="px-2.5 py-1 text-[10px] font-bold rounded-full ${o.deliveryStatus === 'Delivered' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-700'}">
+                            ${o.deliveryStatus}
+                        </span>
+                    </td>
+                    <td class="py-3 px-4 text-center">
+                        <div class="flex justify-center gap-1">
+                            <button onclick="showQuickNewOrderModal('${o.id}')" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg" title="Edit Order">
+                                <i class="fa-solid fa-pen"></i>
+                            </button>
+                            <button onclick="deleteOrderPrompt('${o.id}')" class="p-1.5 text-red-600 hover:bg-red-50 rounded-lg" title="Delete Order">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function deleteOrderPrompt(orderId) {
+            if (confirm(`Are you sure you want to delete order ${orderId}?`)) {
+                await dbDelete('orders', orderId);
+                await reloadAllData();
+                showToast(`Order ${orderId} deleted.`);
+            }
+        }
+
+        /* ================= 5. Products Setup & Catalog ================= */
+        function openAddProductModal(editProductId = null) {
+            const form = document.getElementById('productForm');
+            form.reset();
+
+            if (editProductId) {
+                const product = state.products.find(p => p.id === editProductId);
+                if (!product) return;
+                document.getElementById('productModalTitle').innerText = 'Edit Product';
+                document.getElementById('productEditId').value = product.id;
+                document.getElementById('productName').value = product.name;
+                document.getElementById('productMediumPrice').value = product.sizes?.Medium || '';
+                document.getElementById('productLargePrice').value = product.sizes?.Large || '';
+            } else {
+                document.getElementById('productModalTitle').innerText = 'Add New Product';
+                document.getElementById('productEditId').value = '';
+            }
+
+            document.getElementById('productModal').classList.remove('hidden');
+        }
+
+        async function saveProduct(e) {
+            e.preventDefault();
+            const editId = document.getElementById('productEditId').value;
+            const name = document.getElementById('productName').value.trim();
+            const medPrice = Number(document.getElementById('productMediumPrice').value || 0);
+            const lrgPrice = Number(document.getElementById('productLargePrice').value || 0);
+
+            if (!name) return;
+
+            let prodId = editId;
+            if (!prodId) {
+                prodId = `PROD-${Date.now()}`;
+            }
+
+            const sizesObj = {};
+            if (medPrice > 0) sizesObj['Medium'] = medPrice;
+            if (lrgPrice > 0) sizesObj['Large'] = lrgPrice;
+            if (Object.keys(sizesObj).length === 0) {
+                sizesObj['Regular'] = 100;
+            }
+
+            const productObj = {
+                id: prodId,
+                name: name,
+                sizes: sizesObj
+            };
+
+            await dbPut('products', productObj);
+            await reloadAllData();
+            closeModal('productModal');
+            showToast(`Product saved: ${name}`);
+        }
+
+        function renderProductsGrid() {
+            const grid = document.getElementById('productsGrid');
+
+            grid.innerHTML = state.products.map(p => `
+                <div class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between space-y-4">
+                    <div>
+                        <div class="flex justify-between items-start">
+                            <h3 class="font-bold text-gray-800 text-lg">${escapeHtml(p.name)}</h3>
+                            <button onclick="openAddProductModal('${p.id}')" class="text-xs text-canteen-700 hover:underline">
+                                <i class="fa-solid fa-pen"></i> Edit
+                            </button>
+                        </div>
+                        <div class="mt-3 space-y-1">
+                            ${Object.entries(p.sizes || {}).map(([size, price]) => `
+                                <div class="flex justify-between text-xs bg-gray-50 px-2.5 py-1.5 rounded-lg">
+                                    <span class="text-gray-600 font-medium">${size}</span>
+                                    <span class="font-bold text-canteen-800">Rs. ${price}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    <button onclick="deleteProductPrompt('${p.id}')" class="w-full text-xs text-red-500 hover:text-red-700 py-1 font-semibold text-center border border-red-100 rounded-lg hover:bg-red-50">
+                        Remove Product
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        async function deleteProductPrompt(productId) {
+            if (confirm('Delete this product from catalog? Existing orders will retain their saved price.')) {
+                await dbDelete('products', productId);
+                await reloadAllData();
+                showToast('Product removed.');
+            }
+        }
+
+        /* ================= 6. Backup & Restore ================= */
+        function exportJSONBackup() {
+            const backupData = {
+                version: 1,
+                exportedAt: new Date().toISOString(),
+                customers: state.customers,
+                products: state.products,
+                orders: state.orders
+            };
+
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `CanteenKhata_Backup_${new Date().toISOString().split('T')[0]}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+            showToast('JSON Backup downloaded.');
+        }
+
+        function exportOrdersCSV() {
+            if (state.orders.length === 0) {
+                showToast('No orders available to export.', 'error');
+                return;
+            }
+
+            let csvContent = "data:text/csv;charset=utf-8,";
+            csvContent += "Order ID,Date,Customer,Product,Size,Quantity,Unit Price,Total Amount,Payment Status,Delivery Status\n";
+
+            state.orders.forEach(o => {
+                const row = [
+                    o.id,
+                    o.date || '',
+                    `"${o.customerName}"`,
+                    `"${o.productName}"`,
+                    o.size,
+                    o.quantity,
+                    o.unitPrice,
+                    o.totalAmount,
+                    o.paymentStatus,
+                    o.deliveryStatus
+                ].join(",");
+                csvContent += row + "\n";
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `Canteen_Orders_Report_${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            showToast('Orders exported to CSV.');
+        }
+
+        async function handleRestoreFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (!data.customers || !data.orders || !data.products) {
+                        throw new Error('Invalid JSON schema');
+                    }
+
+                    // Restore Products
+                    for (const p of data.products) {
+                        await dbPut('products', p);
+                    }
+                    // Restore Customers
+                    for (const c of data.customers) {
+                        await dbPut('customers', c);
+                    }
+                    // Restore Orders
+                    for (const o of data.orders) {
+                        await dbPut('orders', o);
+                    }
+
+                    await reloadAllData();
+                    showToast('Backup restored successfully!');
+                } catch (err) {
+                    showToast('Failed to restore backup file.', 'error');
+                    console.error(err);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        /* ================= UI Utilities & Helpers ================= */
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.add('hidden');
+        }
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `px-4 py-2.5 rounded-xl shadow-lg text-sm font-semibold pointer-events-auto flex items-center gap-2 transition-all duration-300 transform translate-y-2 opacity-0 ${
+                type === 'error' ? 'bg-red-800 text-white' : 'bg-canteen-800 text-white'
+            }`;
+            toast.innerHTML = `<i class="fa-solid ${type === 'error' ? 'fa-circle-exclamation' : 'fa-circle-check'}"></i> ${escapeHtml(message)}`;
+            
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            }, 10);
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/[&<>"']/g, m => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+            })[m]);
+        }
+
+        /* ================= Progressive Web App (PWA) Handler ================= */
+        let deferredPrompt;
+
+        function setupPWA() {
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                deferredPrompt = e;
+                const pwaBtn = document.getElementById('pwaInstallBtn');
+                if (pwaBtn) pwaBtn.classList.remove('hidden');
+            });
+        }
+
+        function installPWA() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        document.getElementById('pwaInstallBtn').classList.add('hidden');
+                    }
+                    deferredPrompt = null;
+                });
+            }
+        }
+    </script>
+</body>
+</html>
